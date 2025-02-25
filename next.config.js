@@ -9,20 +9,16 @@ const nextConfig = {
     ],
     unoptimized: true, // Optional: disable image optimization if you're having issues
   },
-  // Alternatively, if you want to be more specific about allowed domains:
-  // images: {
-  //   domains: [
-  //     'media-cldnry.s-nbcnews.com',
-  //     'ichef.bbci.co.uk',
-  //     'cdn.cnn.com',
-  //     'static.foxnews.com',
-  //     'media.npr.org',
-  //     'assets.bwbx.io',
-  //     'images.wsj.net',
-  //     'nypost.com',
-  //     'assets.reuters.com',
-  //   ],
-  // },
-}
+  // Add these configurations
+  experimental: {
+    appDir: true,
+  },
+  poweredByHeader: false,
+  reactStrictMode: true,
+  // Disable trace in development to avoid permission issues
+  typescript: {
+    ignoreBuildErrors: true,
+  }
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

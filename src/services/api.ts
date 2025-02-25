@@ -74,7 +74,7 @@ newsApi.interceptors.response.use(
 
 // Queue system for API requests
 class RequestQueue {
-  private queue: (() => Promise<any>)[] = [];
+  private queue: Array<() => Promise<unknown>> = [];
   private processing = false;
   private lastRequestTime = 0;
   private RATE_LIMIT_DELAY = 2000; // 2 seconds between requests
