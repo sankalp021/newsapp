@@ -25,6 +25,18 @@ interface NewsParams {
   pageSize?: number;
 }
 
+interface NewsArticleResponse {
+  source: {
+    name: string;
+  };
+  title: string;
+  description: string;
+  content: string;
+  url: string;
+  urlToImage: string;
+  publishedAt: string;
+}
+
 const initializeNewsApi = () => {
   if (!process.env.NEXT_PUBLIC_NEWS_API_KEY) {
     console.error('NEWS_API_KEY is not defined in environment variables');
@@ -187,7 +199,7 @@ export const fetchNews = async ({
       throw new APIError('Invalid response from News API');
     }
 
-    const articles = response.data.articles.map((article: any) => ({
+    const articles = response.data.articles.map((article: NewsArticleResponse) => ({
       ...article,
       content: article.content || article.description || 'No content available',
       description: article.description || 'No description available',
