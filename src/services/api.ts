@@ -21,56 +21,138 @@ interface NewsParams {
   page?: number;
   category?: NewsCategory;
   query?: string;
-  country?: string;
+  language?: string;
   pageSize?: number;
 }
 
-interface NewsArticleResponse {
-  source: {
-    name: string;
-  };
-  title: string;
-  description: string;
-  content: string;
-  url: string;
-  urlToImage: string;
-  publishedAt: string;
+interface APITubeResponse {
+  status: string;
+  limit: number;
+  page: number;
+  has_next_pages: boolean;
+  next_page: string;
+  next_page_cursor: string;
+  has_previous_page: boolean;
+  previous_page: string;
+  results: APITubeArticle[];
 }
 
-const initializeNewsApi = () => {
-  if (!process.env.NEXT_PUBLIC_NEWS_API_KEY) {
-    console.error('NEWS_API_KEY is not defined in environment variables');
-    throw new APIError('API configuration error');
-  }
+interface APITubeArticle {
+  id: number;
+  href: string;
+  published_at: string;
+  title: string;
+  description: string;
+  body: string;
+  image: string;
+  author: {
+    id: string;
+    name: string;
+  };
+  source: {
+    id: number;
+    domain: string;
+    home_page_url: string;
+    type: string;
+    rankings: {
+      opr: number;
+    };
+    location: {
+      country_name: string;
+      country_code: string;
+    };
+    favicon: string;
+  };
+}
 
+const BASE_URL = '/api/news';
+
+const initializeNewsApi = () => {
   return axios.create({
-    baseURL: 'https://newsapi.org/v2',
-    headers: {
-      'X-Api-Key': process.env.NEXT_PUBLIC_NEWS_API_KEY
-    }
+    baseURL: BASE_URL
   });
 };
 
-let newsApi: ReturnType<typeof axios.create>;
-try {
-  newsApi = initializeNewsApi();
-} catch (error) {
-  console.error('Failed to initialize News API:', error);
-  newsApi = axios.create(); // Create a basic instance that will fail gracefully
-}
+const apiTube = initializeNewsApi();
 
-// Add response interceptor for rate limiting
-newsApi.interceptors.response.use(
-  response => response,
-  error => {
-    if (error.response?.status === 429) {
-      // Handle rate limiting
-      console.error('Rate limit reached. Please try again later.');
-      throw new APIError('Too many requests. Please try again later.');
+export const fetchNews = async ({
+  page = 1,
+  category,
+  query = '',
+  language = 'en',
+  pageSize = 12
+}: NewsParams = {}): Promise<{
+  articles: Article[];
+  totalResults: number;
+  hasNextPage: boolean;
+}> => {
+  try {
+    let endpoint = 'everything';
+    let queryParams: Record<string, string> = {
+      endpoint,
+      page: page.toString(),
+      limit: pageSize.toString(),
+      'language.code': language
+    };
+
+    if (query) {
+      // Simplified query syntax
+      queryParams.q = query;
+    } else if (category) {
+      endpoint = 'category';
+      queryParams.category = category;
     }
-    return Promise.reject(error);
+
+    console.log('Request params:', queryParams); // Debug log
+
+    const response = await apiTube.get('', { params: queryParams });
+    const data = response.data;
+
+    console.log('Response data:', data); // Debug log
+
+    if (!data || data.status === 'not_ok') {
+      throw new APIError(data?.error || 'Invalid response from APITube');
+    }
+
+    if (!Array.isArray(data.results)) {
+      console.error('Invalid results format:', data.results);
+      return {
+        articles: [],
+        totalResults: 0,
+        hasNextPage: false
+      };
+    }
+
+    const articles: Article[] = data.results
+      .filter((article: APITubeArticle) => article.title && article.href) // Only include valid articles
+      .map((article: APITubeArticle) => ({
+        title: article.title || 'No title available',
+        description: article.description || 'No description available',
+        content: article.body || article.description || 'No content available',
+        url: article.href,
+        urlToImage: article.image || '/placeholder-image.jpg',
+        publishedAt: article.published_at || new Date().toISOString(),
+        source: {
+          name: article.source?.domain || 'Unknown Source'
+        }
+      }));
+
+    return {
+      articles,
+      totalResults: parseInt(data.limit) || articles.length,
+      hasNextPage: Boolean(data.has_next_pages)
+    };
+  } catch (error) {
+    console.error('APITube Error Details:', error);
+    if (error instanceof AxiosError) {
+      const message = error.response?.data?.error || 
+                     error.message || 
+                     'Failed to fetch news';
+      throw new APIError(message);
+    }
+    throw error;
   }
-);
+};
 
 // Queue system for API requests
 class RequestQueue {
@@ -119,7 +201,7 @@ export const generateAIContent = async (article: Article): Promise<{ headline: s
   try {
     const combinedContent = `Title: ${article.title}\nDescription: ${article.description}\nContent: ${article.content}`;
     
-    const promptHeadline = `Create a factual, engaging headline (max 10 words) that captures the main point of this news: ${combinedContent}`;
+    const promptHeadline = `Create a factual, engaging headline (max 10 words) that captures the main point of this news, just give one response as the heading you make will directly be displayed: ${combinedContent}`;
     const promptSummary = `Analyze this news article and provide a comprehensive summary in exactly 100 words. Include the main event, key details, implications, and relevant context: ${combinedContent}`;
 
     const result = await requestQueue.add(async () => {
@@ -162,63 +244,5 @@ export const generateAIContent = async (article: Article): Promise<{ headline: s
       headline: article.title,
       summary: article.description
     };
-  }
-};
-
-export const fetchNews = async ({
-  page = 1,
-  category = 'general',
-  query = '',
-  country = 'us',
-  pageSize = 12
-}: NewsParams = {}): Promise<{
-  articles: Article[];
-  totalResults: number;
-}> => {
-  try {
-    if (!process.env.NEXT_PUBLIC_NEWS_API_KEY) {
-      throw new APIError('News API key is missing. Please check your environment variables.');
-    }
-
-    const endpoint = query ? '/everything' : '/top-headlines';
-    const params: Record<string, string | number> = {
-      pageSize,
-      page
-    };
-
-    if (query) {
-      params.q = query;
-    } else {
-      params.country = country;
-      params.category = category;
-    }
-
-    const response = await newsApi.get(endpoint, { params });
-
-    if (!response.data || !Array.isArray(response.data.articles)) {
-      throw new APIError('Invalid response from News API');
-    }
-
-    const articles = response.data.articles.map((article: NewsArticleResponse) => ({
-      ...article,
-      content: article.content || article.description || 'No content available',
-      description: article.description || 'No description available',
-      urlToImage: article.urlToImage || '/placeholder-image.jpg'
-    }));
-
-    return {
-      articles,
-      totalResults: response.data.totalResults || articles.length
-    };
-  } catch (error) {
-    console.error('Detailed error:', error);
-    if (error instanceof AxiosError) {
-      const message = error.response?.data?.message || 
-                     error.message || 
-                     'Failed to fetch news';
-      console.error('News API Error:', error.response?.data || error.message);
-      throw new APIError(`News API Error: ${message}`);
-    }
-    throw error;
   }
 };

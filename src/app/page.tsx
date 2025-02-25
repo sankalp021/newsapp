@@ -27,19 +27,18 @@ export default function Home() {
         throw new Error('News API key is not configured');
       }
 
-      const { articles: newsArticles, totalResults: total } = await fetchNews({
+      const { articles: newsArticles, totalResults: total, hasNextPage } = await fetchNews({
         page,
         category,
         query: query.trim(),
       });
       
-      if (!newsArticles || newsArticles.length === 0) {
-        setError('No articles found');
-        return;
-      }
-      
       setArticles(newsArticles);
       setTotalResults(total);
+      
+      if (!hasNextPage) {
+        setPage(1); // Reset page if there are no more results
+      }
     } catch (error) {
       console.error('Detailed error loading news:', error);
       setError(
