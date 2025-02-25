@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Article } from '@/types/types';
 import { fetchNews, NewsCategory } from '@/services/api';
 import NewsCard from '@/components/NewsCard';
@@ -17,7 +17,7 @@ export default function Home() {
   const [category, setCategory] = useState<NewsCategory>('general');
   const [query, setQuery] = useState('');
 
-  const loadNews = async () => {
+  const loadNews = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -51,12 +51,12 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, query, page]);
 
   useEffect(() => {
     const timeoutId = setTimeout(loadNews, query ? 500 : 0);
     return () => clearTimeout(timeoutId);
-  }, [page, category, query]);
+  }, [query, loadNews]);
 
   return (
     <div className="min-h-screen bg-black text-white">
