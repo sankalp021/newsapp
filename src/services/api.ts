@@ -35,6 +35,7 @@ interface APITubeResponse {
   has_previous_page: boolean;
   previous_page: string;
   results: APITubeArticle[];
+  error?: string;
 }
 
 interface APITubeArticle {
@@ -90,30 +91,19 @@ export const fetchNews = async ({
 }> => {
   try {
     const endpoint = query ? 'everything' : 'category';
-    const queryParams: {
-      endpoint: string;
-      page: string;
-      limit: string;
-      'language.code': string;
-      q?: string;
-      category?: string;
-    } = {
+    const queryParams = {
       endpoint,
       page: page.toString(),
       limit: pageSize.toString(),
-      'language.code': language
+      'language.code': language,
+      ...(query ? { q: query } : {}),
+      ...(category ? { category } : {})
     };
 
-    if (query) {
-      queryParams.q = query;
-    } else if (category) {
-      queryParams.category = category;
-    }
-
     const response = await apiTube.get('', { params: queryParams });
-    const data = response.data;
+    const data = response.data as APITubeResponse;
 
-    if (!data || data.status === 'not_ok') {
+    if (!data || data.status !== 'ok') {
       throw new APIError(data?.error || 'Invalid response from APITube');
     }
 
@@ -142,7 +132,7 @@ export const fetchNews = async ({
 
     return {
       articles,
-      totalResults: parseInt(data.limit) || articles.length,
+      totalResults: data.limit || articles.length,
       hasNextPage: Boolean(data.has_next_pages)
     };
   } catch (error) {

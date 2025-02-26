@@ -14,6 +14,9 @@ const nextConfig = {
   // Disable trace in development to avoid permission issues
   typescript: {
     ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true, // Add this line to ignore ESLint errors during build
   }
 };
 

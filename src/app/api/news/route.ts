@@ -12,11 +12,11 @@ export async function GET(request: Request) {
   }
 
   const endpoint = searchParams.get('endpoint') || 'everything';
-  const queryParams = Object.fromEntries(searchParams.entries());
-  delete queryParams.endpoint;
+  const params = Object.fromEntries(searchParams.entries());
+  delete params.endpoint;
 
-  const category = queryParams.category;
-  delete queryParams.category;
+  const category = params.category;
+  delete params.category;
 
   const url = endpoint === 'category' && category
     ? `https://api.apitube.io/v1/news/category/${category}`
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   const finalUrl = `${url}?${new URLSearchParams({
     api_key: apiKey,
-    ...queryParams
+    ...params
   })}`;
 
   try {
