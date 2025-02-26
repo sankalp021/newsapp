@@ -1,31 +1,35 @@
 import { NextResponse } from 'next/server';
+// import axios from 'axios';
+
+// const BASE_URL = 'https://api.apitube.io/v1/news';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const apiKey = process.env.APITUBE_API_KEY || process.env.NEXT_PUBLIC_APITUBE_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_APITUBE_API_KEY;
   
-  if (!apiKey) {
-    return NextResponse.json({ 
-      status: 'not_ok',
-      error: 'API key not configured' 
-    }, { status: 500 });
+  const endpoint = searchParams.get('endpoint') || 'everything';
+  const queryParams = Object.fromEntries(searchParams.entries());
+  delete queryParams.endpoint;
+
+  // Handle category parameter separately
+  const category = queryParams.category;
+  delete queryParams.category;
+
+  // Build the URL with the correct format
+  let url = `https://api.apitube.io/v1/news/${endpoint}`;
+  
+  // Handle category endpoint differently
+  if (endpoint === 'category' && category) {
+    url = `https://api.apitube.io/v1/news/category/${category}`;
   }
 
-  const endpoint = searchParams.get('endpoint') || 'everything';
-  const params = Object.fromEntries(searchParams.entries());
-  delete params.endpoint;
-
-  const category = params.category;
-  delete params.category;
-
-  const url = endpoint === 'category' && category
-    ? `https://api.apitube.io/v1/news/category/${category}`
-    : `https://api.apitube.io/v1/news/${endpoint}`;
-
+  // Add API key and other parameters
   const finalUrl = `${url}?${new URLSearchParams({
-    api_key: apiKey,
-    ...params
+    api_key: apiKey || '',
+    ...queryParams
   })}`;
+
+  console.log('Request URL:', finalUrl); // Debug log
 
   try {
     const response = await fetch(finalUrl, {
@@ -36,6 +40,7 @@ export async function GET(request: Request) {
     });
 
     const data = await response.json();
+    console.log('APITube raw response:', data); // Debug log
 
     if (!response.ok || data.status === 'not_ok') {
       throw new Error(data.error || 'Failed to fetch news');
@@ -43,6 +48,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Proxy error:', error);
     return NextResponse.json(
       { 
         status: 'not_ok',

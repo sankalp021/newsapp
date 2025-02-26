@@ -25,18 +25,18 @@ interface NewsParams {
   pageSize?: number;
 }
 
-interface APITubeResponse {
-  status: string;
-  limit: number;
-  page: number;
-  has_next_pages: boolean;
-  next_page: string;
-  next_page_cursor: string;
-  has_previous_page: boolean;
-  previous_page: string;
-  results: APITubeArticle[];
-  error?: string;
-}
+// interface APITubeResponse {
+//   status: string;
+//   limit: number;
+//   page: number;
+//   has_next_pages: boolean;
+//   next_page: string;
+//   next_page_cursor: string;
+//   has_previous_page: boolean;
+//   previous_page: string;
+//   results: APITubeArticle[];
+//   error?: string;
+// }
 
 interface APITubeArticle {
   id: number;
@@ -90,20 +90,30 @@ export const fetchNews = async ({
   hasNextPage: boolean;
 }> => {
   try {
-    const endpoint = query ? 'everything' : 'category';
-    const queryParams = {
+    let endpoint = 'everything';
+    const queryParams: Record<string, string> = {
       endpoint,
       page: page.toString(),
       limit: pageSize.toString(),
-      'language.code': language,
-      ...(query ? { q: query } : {}),
-      ...(category ? { category } : {})
+      'language.code': language
     };
 
-    const response = await apiTube.get('', { params: queryParams });
-    const data = response.data as APITubeResponse;
+    if (query) {
+      // Simplified query syntax
+      queryParams.q = query;
+    } else if (category) {
+      endpoint = 'category';
+      queryParams.category = category;
+    }
 
-    if (!data || data.status !== 'ok') {
+    console.log('Request params:', queryParams); // Debug log
+
+    const response = await apiTube.get('', { params: queryParams });
+    const data = response.data;
+
+    console.log('Response data:', data); // Debug log
+
+    if (!data || data.status === 'not_ok') {
       throw new APIError(data?.error || 'Invalid response from APITube');
     }
 
@@ -117,14 +127,30 @@ export const fetchNews = async ({
     }
 
     const articles: Article[] = data.results
-      .filter((article: APITubeArticle) => article.title && article.href) // Only include valid articles
+      // First, ensure we have valid data
+      .filter((article: APITubeArticle) => (
+        article.title && 
+        article.href && 
+        article.published_at
+      ))
+      // Then, create a Set to track unique titles
+      .reduce((unique: APITubeArticle[], article: APITubeArticle) => {
+        const isDuplicate = unique.some(
+          (a) => a.title === article.title || a.href === article.href
+        );
+        if (!isDuplicate) {
+          unique.push(article);
+        }
+        return unique;
+      }, [])
+      // Finally, map to our Article type
       .map((article: APITubeArticle) => ({
-        title: article.title || 'No title available',
-        description: article.description || 'No description available',
-        content: article.body || article.description || 'No content available',
+        title: article.title.trim(),
+        description: article.description?.trim() || article.title,
+        content: article.body?.trim() || article.description || article.title,
         url: article.href,
         urlToImage: article.image || '/placeholder-image.jpg',
-        publishedAt: article.published_at || new Date().toISOString(),
+        publishedAt: article.published_at,
         source: {
           name: article.source?.domain || 'Unknown Source'
         }
@@ -132,7 +158,7 @@ export const fetchNews = async ({
 
     return {
       articles,
-      totalResults: data.limit || articles.length,
+      totalResults: parseInt(data.limit) || articles.length,
       hasNextPage: Boolean(data.has_next_pages)
     };
   } catch (error) {

@@ -21,11 +21,6 @@ export default function Home() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Check API key before making request
-      if (!process.env.NEXT_PUBLIC_NEWS_API_KEY) {
-        throw new Error('News API key is not configured');
-      }
 
       const { articles: newsArticles, totalResults: total, hasNextPage } = await fetchNews({
         page,
@@ -33,17 +28,21 @@ export default function Home() {
         query: query.trim(),
       });
       
-      setArticles(newsArticles);
-      setTotalResults(total);
-      
-      if (!hasNextPage) {
-        setPage(1); // Reset page if there are no more results
+      if (newsArticles.length === 0) {
+        setError('No articles found');
+      } else {
+        setArticles(newsArticles);
+        setTotalResults(total);
+        
+        if (!hasNextPage) {
+          setPage(1);
+        }
       }
     } catch (error) {
-      console.error('Detailed error loading news:', error);
+      console.error('Error loading news:', error);
       setError(
         error instanceof Error 
-          ? `Error: ${error.message}` 
+          ? error.message 
           : 'Failed to load news'
       );
       setArticles([]);
@@ -83,12 +82,16 @@ export default function Home() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10">
-              {articles.map((article) => (
-                <NewsCard 
-                  key={`${article.url}-${article.publishedAt}`} 
-                  article={article}
-                />
-              ))}
+              {articles.map((article, index) => {
+                // Create a unique identifier based on multiple properties
+                const uniqueKey = `${article.source.name}-${article.title}-${index}`;
+                return (
+                  <NewsCard 
+                    key={uniqueKey}
+                    article={article}
+                  />
+                );
+              })}
             </div>
 
             <div className="container mx-auto px-4 py-12">
