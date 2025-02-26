@@ -65,7 +65,9 @@ interface APITubeArticle {
   };
 }
 
-const BASE_URL = '/api/news';
+const BASE_URL = process.env.NEXT_PUBLIC_VERCEL_URL 
+  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/news`
+  : '/api/news';
 
 const initializeNewsApi = () => {
   return axios.create({
@@ -87,8 +89,8 @@ export const fetchNews = async ({
   hasNextPage: boolean;
 }> => {
   try {
-    let endpoint = 'everything';
-    let queryParams: Record<string, string> = {
+    const endpoint = query ? 'everything' : 'category';
+    const queryParams = {
       endpoint,
       page: page.toString(),
       limit: pageSize.toString(),
@@ -96,19 +98,13 @@ export const fetchNews = async ({
     };
 
     if (query) {
-      // Simplified query syntax
       queryParams.q = query;
     } else if (category) {
-      endpoint = 'category';
       queryParams.category = category;
     }
 
-    console.log('Request params:', queryParams); // Debug log
-
     const response = await apiTube.get('', { params: queryParams });
     const data = response.data;
-
-    console.log('Response data:', data); // Debug log
 
     if (!data || data.status === 'not_ok') {
       throw new APIError(data?.error || 'Invalid response from APITube');
