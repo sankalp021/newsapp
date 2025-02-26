@@ -1,21 +1,7 @@
 import { NextResponse } from 'next/server';
-// import axios from 'axios';
-
-// const BASE_URL = 'https://api.apitube.io/v1/news';
 
 export async function GET(request: Request) {
-  // Handle CORS preflight requests
-  if (request.method === 'OPTIONS') {
-    return new NextResponse(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
-  }
-
+  // Remove CORS handling from here since it's handled by middleware
   const { searchParams } = new URL(request.url);
   const apiKey = process.env.NEXT_PUBLIC_APITUBE_API_KEY;
   
@@ -52,46 +38,21 @@ export async function GET(request: Request) {
     });
 
     const data = await response.json();
-    console.log('APITube raw response:', data); // Debug log
 
     if (!response.ok || data.status === 'not_ok') {
       throw new Error(data.error || 'Failed to fetch news');
     }
 
-    return NextResponse.json(data, {
-      headers: {
-        'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
-    });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Proxy error:', error);
     return NextResponse.json(
       { 
         status: 'not_ok',
         error: error instanceof Error ? error.message : 'Failed to fetch news'
       },
-      { 
-        status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
-          'Access-Control-Allow-Methods': 'GET,OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
-      }
+      { status: 500 }
     );
   }
 }
 
-// Handle OPTIONS request explicitly
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
-      'Access-Control-Allow-Methods': 'GET,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
-}
+// Remove OPTIONS handler as it's handled by middleware

@@ -31,6 +31,23 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/api/:path*',
+          has: [
+            {
+              type: 'header',
+              key: 'origin',
+              value: '(?<origin>.*)',
+            },
+          ],
+          destination: '/api/:path*',
+        },
+      ],
+    };
+  },
 };
 
 module.exports = nextConfig;
