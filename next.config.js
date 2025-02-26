@@ -9,10 +9,6 @@ const nextConfig = {
     ],
     unoptimized: true, // Optional: disable image optimization if you're having issues
   },
-  // Add these configurations
-  experimental: {
-    appDir: true,
-  },
   poweredByHeader: false,
   reactStrictMode: true,
   // Disable trace in development to avoid permission issues
