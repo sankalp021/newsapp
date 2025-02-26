@@ -4,6 +4,18 @@ import { NextResponse } from 'next/server';
 // const BASE_URL = 'https://api.apitube.io/v1/news';
 
 export async function GET(request: Request) {
+  // Handle CORS preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
+        'Access-Control-Allow-Methods': 'GET,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
+
   const { searchParams } = new URL(request.url);
   const apiKey = process.env.NEXT_PUBLIC_APITUBE_API_KEY;
   
@@ -46,7 +58,13 @@ export async function GET(request: Request) {
       throw new Error(data.error || 'Failed to fetch news');
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: {
+        'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
+        'Access-Control-Allow-Methods': 'GET,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
+    });
   } catch (error) {
     console.error('Proxy error:', error);
     return NextResponse.json(
@@ -54,7 +72,26 @@ export async function GET(request: Request) {
         status: 'not_ok',
         error: error instanceof Error ? error.message : 'Failed to fetch news'
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
+          'Access-Control-Allow-Methods': 'GET,OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        }
+      }
     );
   }
+}
+
+// Handle OPTIONS request explicitly
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': 'https://bytenewz.vercel.app',
+      'Access-Control-Allow-Methods': 'GET,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }

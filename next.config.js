@@ -17,7 +17,20 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true, // Add this line to ignore ESLint errors during build
-  }
+  },
+  async headers() {
+    return [
+      {
+        // Allow CORS for API routes
+        source: "/api/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "https://bytenewz.vercel.app" },
+          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
