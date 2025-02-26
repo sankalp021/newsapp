@@ -90,7 +90,14 @@ export const fetchNews = async ({
 }> => {
   try {
     const endpoint = query ? 'everything' : 'category';
-    const queryParams = {
+    const queryParams: {
+      endpoint: string;
+      page: string;
+      limit: string;
+      'language.code': string;
+      q?: string;
+      category?: string;
+    } = {
       endpoint,
       page: page.toString(),
       limit: pageSize.toString(),
