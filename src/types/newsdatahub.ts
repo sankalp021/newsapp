@@ -1,50 +1,37 @@
 export interface NewsDataHubResponse {
-  next_cursor: string | null;
-  total_results: number;
-  per_page: number;
+  status?: string;
   data: NewsDataHubArticle[];
+  total_results?: number;
+  next_cursor?: string;
   error?: string;
 }
 
 export interface NewsDataHubArticle {
-  id: string;
+  id?: string;
   title: string;
-  source_title: string;
-  source_link: string;
-  article_link: string;
-  keywords?: string[];
-  topics?: string[];
-  description: string;
+  description?: string;
+  content?: string;
   pub_date: string;
-  creator?: string | null;
-  content?: string | null;
-  media_url?: string | null;
-  media_type?: string | null;
-  media_description?: string | null;
-  media_credit?: string | null;
-  media_thumbnail?: string | null;
-  language: string;
-  sentiment?: {
-    pos: number;
-    neg: number;
-    neu: number;
-  };
+  article_link: string;
+  source_title?: string;
+  source_domain?: string;
+  source_domain_link?: string;
+  source_country_code?: string;
+  topic?: string;
+  media_url?: string;
+  media_thumbnail?: string;
 }
 
-export type NewsTopic = 
-  | 'politics'
+export type NewsTopic =
   | 'business'
   | 'entertainment'
+  | 'environment'
+  | 'food'
   | 'health'
+  | 'politics'
   | 'science'
   | 'sports'
   | 'technology'
-  | 'environment'
-  | 'economy'
-  | 'finance'
-  | 'education'
-  | 'energy'
-  | 'travel'
-  | 'culture'
-  | 'government'
+  | 'top'
+  | 'tourism'
   | 'world';

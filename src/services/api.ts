@@ -21,6 +21,7 @@ interface NewsParams {
   pageSize?: number;
   startDate?: string;
   endDate?: string;
+  topics?: string[]; // Added support for multiple topics
 }
 
 // Create a NewsDataHub client directly instead of using proxy API
@@ -48,7 +49,8 @@ export const fetchNews = async ({
   language = 'en',
   pageSize = 10,
   startDate,
-  endDate
+  endDate,
+  topics = []
 }: NewsParams = {}): Promise<{
   articles: Article[];
   totalResults: number;
@@ -56,7 +58,7 @@ export const fetchNews = async ({
   nextCursor: string | null;
 }> => {
   try {
-    const queryParams: Record<string, string> = {
+    const queryParams: Record<string, string | string[]> = {
       language,
     };
 
@@ -74,6 +76,11 @@ export const fetchNews = async ({
     // "general" is handled separately (returns all categories)
     if (category && category !== 'general') {
       queryParams.topic = category;
+    }
+
+    // Add multiple topics if specified
+    if (topics.length > 0) {
+      queryParams.topic = topics;
     }
 
     // Add date filters if available
@@ -156,7 +163,7 @@ export const fetchNews = async ({
       articles,
       totalResults: data.total_results || 0,
       hasNextPage: !!data.next_cursor,
-      nextCursor: data.next_cursor
+      nextCursor: data.next_cursor || null
     };
   } catch (error) {
     console.error('NewsDataHub Error Details:', error);
@@ -218,9 +225,8 @@ export const generateAIContent = async (article: Article): Promise<{ headline: s
   try {
     const combinedContent = `Title: ${article.title}\nDescription: ${article.description}\nContent: ${article.content}`;
     
-    const promptHeadline = `Craft a sharp, witty, or darkly humorous headline (max 10 words) that captures the essence of this news. If it's not crime-related, feel free to make it satirical or ironic. No fluff—make it hit hard: ${combinedContent} give a single headline only`;
-    const promptSummary = `Summarize this news article in exactly 100 words, blending analysis with biting wit, irony, or dark humor (if it doesn’t involve crime). Highlight the main event, key details, and broader implications while keeping it bold, engaging, and slightly irreverent : ${combinedContent} dont use unnecessary inverted commas`;
-
+    const promptHeadline = `Craft a sharp, witty, or darkly humorous headline (max 10 words) that captures the essence of this news. If it's not crime-related, feel free to make it satirical or ironic. No fluff—make it hit hard: ${combinedContent} give a single headline only, no additional formatting like asterisks, quotes or markdown.`;
+    const promptSummary = `Summarize this news article in exactly 100 words, blending analysis with biting wit, irony, or dark humor (if it doesn't involve crime). Highlight the main event, key details, and broader implications while keeping it bold, engaging, and slightly irreverent. Do not use any markdown, asterisks, quotes or special formatting: ${combinedContent}`;
 
     const result = await requestQueue.add(async () => {
       try {
@@ -245,9 +251,17 @@ export const generateAIContent = async (article: Article): Promise<{ headline: s
           })
         ]);
 
+        // Clean up any Markdown or special characters from the responses
+        let headline = headlineRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || article.title;
+        let summary = summaryRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || article.description;
+
+        // Remove Markdown formatting like asterisks, quotes, etc.
+        headline = headline.replace(/[\*\"\'\_\`\~\#\>\<\[\]\(\)\{\}\|\\\^\=]/g, '').trim();
+        summary = summary.replace(/[\*\"\'\_\`\~\#\>\<\[\]\(\)\{\}\|\\\^\=]/g, '').trim();
+
         return {
-          headline: headlineRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || article.title,
-          summary: summaryRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || article.description
+          headline,
+          summary
         };
       } catch (error) {
         console.error('Full error details:', error);
