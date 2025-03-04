@@ -1,60 +1,67 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
   children: React.ReactNode;
 }
 
 const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
-  const handleEsc = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
-  }, [onClose]);
+  const modalRef = useRef<HTMLDivElement>(null);
 
-  // Handle overflow
+  // Close on escape key press
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'unset';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
     };
-  }, [isOpen]);
 
-  // Handle escape key
-  useEffect(() => {
     if (isOpen) {
-      window.addEventListener('keydown', handleEsc);
-      return () => window.removeEventListener('keydown', handleEsc);
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
     }
-  }, [isOpen, handleEsc]);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = ''; // Re-enable scrolling when modal is closed
+    };
+  }, [isOpen, onClose]);
+
+  // Close if clicking outside of modal content
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div 
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6"
+      onClick={handleBackdropClick}
+    >
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="fixed inset-0 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-black border border-white/10 rounded-lg shadow-xl">
-            <div className="p-6">
-              <button 
-                onClick={onClose}
-                className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-              <h2 className="text-2xl font-bold mb-4 pr-8">{title}</h2>
-              <div className="max-h-[calc(100vh-10rem)] overflow-y-auto">
-                {children}
-              </div>
-            </div>
-          </div>
+        className="animate-fade-up bg-black border border-white/20 rounded-lg shadow-modal w-full max-w-full sm:max-w-3xl max-h-[92vh] sm:max-h-[85vh] overflow-y-auto"
+        ref={modalRef}
+      >
+        <div className="sticky top-0 z-10 bg-black border-b border-white/10 flex justify-between items-center p-3 sm:p-4">
+          {title && <h2 className="text-xl sm:text-2xl font-bold heading">{title}</h2>}
+          <button 
+            onClick={onClose}
+            className="ml-auto rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-white/10 transition-colors"
+            aria-label="Close modal"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div className="p-3 sm:p-4 md:p-5">
+          {children}
         </div>
       </div>
     </div>
