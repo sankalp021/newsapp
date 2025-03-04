@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { Article } from '../types/types';
+import { NewsDataHubResponse, NewsDataHubArticle, NewsTopic } from '../types/newsdatahub';
 
 class APIError extends Error {
   constructor(message: string) {
@@ -8,62 +9,18 @@ class APIError extends Error {
   }
 }
 
-export type NewsCategory = 
-  | 'general' 
-  | 'business' 
-  | 'entertainment' 
-  | 'health' 
-  | 'science' 
-  | 'sports' 
-  | 'technology';
+// Map our general category to appropriate topics for NewsDataHub
+export type NewsCategory = NewsTopic | 'general';
 
 interface NewsParams {
   page?: number;
+  cursor?: string;
   category?: NewsCategory;
   query?: string;
   language?: string;
   pageSize?: number;
-}
-
-// interface APITubeResponse {
-//   status: string;
-//   limit: number;
-//   page: number;
-//   has_next_pages: boolean;
-//   next_page: string;
-//   next_page_cursor: string;
-//   has_previous_page: boolean;
-//   previous_page: string;
-//   results: APITubeArticle[];
-//   error?: string;
-// }
-
-interface APITubeArticle {
-  id: number;
-  href: string;
-  published_at: string;
-  title: string;
-  description: string;
-  body: string;
-  image: string;
-  author: {
-    id: string;
-    name: string;
-  };
-  source: {
-    id: number;
-    domain: string;
-    home_page_url: string;
-    type: string;
-    rankings: {
-      opr: number;
-    };
-    location: {
-      country_name: string;
-      country_code: string;
-    };
-    favicon: string;
-  };
+  startDate?: string;
+  endDate?: string;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_VERCEL_URL 
@@ -76,67 +33,100 @@ const initializeNewsApi = () => {
   });
 };
 
-const apiTube = initializeNewsApi();
+const newsDataHubApi = initializeNewsApi();
 
 export const fetchNews = async ({
-  page = 1,
+  page,
+  cursor,
   category,
   query = '',
   language = 'en',
-  pageSize = 12
+  pageSize = 10,
+  startDate,
+  endDate
 }: NewsParams = {}): Promise<{
   articles: Article[];
   totalResults: number;
   hasNextPage: boolean;
+  nextCursor: string | null;
 }> => {
   try {
-    let endpoint = 'everything';
     const queryParams: Record<string, string> = {
-      endpoint,
-      page: page.toString(),
-      limit: pageSize.toString(),
-      'language.code': language
+      language,
     };
 
+    // Add cursor for pagination if available
+    if (cursor) {
+      queryParams.cursor = cursor;
+    }
+
+    // Add search query if available
     if (query) {
-      // Simplified query syntax
       queryParams.q = query;
-    } else if (category) {
-      endpoint = 'category';
-      queryParams.category = category;
+    }
+
+    // Add topic/category filter if available
+    // "general" is handled by the API route (returns all categories)
+    if (category && category !== 'general') {
+      queryParams.topic = category;
+    }
+
+    // Add date filters if available
+    if (startDate) {
+      queryParams.start_date = startDate;
+    }
+    
+    if (endDate) {
+      queryParams.end_date = endDate;
     }
 
     console.log('Request params:', queryParams); // Debug log
 
-    const response = await apiTube.get('', { params: queryParams });
-    const data = response.data;
+    const response = await newsDataHubApi.get('', { 
+      params: queryParams 
+    });
+    
+    const data: NewsDataHubResponse = response.data;
 
-    console.log('Response data:', data); // Debug log
+    // For debugging
+    console.log('Response structure:', Object.keys(data || {}));
 
-    if (!data || data.status === 'not_ok') {
-      throw new APIError(data?.error || 'Invalid response from APITube');
+    if (!data) {
+      throw new APIError('Empty response from NewsDataHub');
     }
 
-    if (!Array.isArray(data.results)) {
-      console.error('Invalid results format:', data.results);
+    if (data.error) {
+      throw new APIError(data.error);
+    }
+
+    // Check if the response has the expected data structure
+    if (!Array.isArray(data.data)) {
+      console.error('Invalid results format:', data);
+      
+      // Handle the case where the API returns an error object
+      if (data.error || (data as any).message) {
+        throw new APIError((data.error || (data as any).message) as string);
+      }
+      
       return {
         articles: [],
         totalResults: 0,
-        hasNextPage: false
+        hasNextPage: false,
+        nextCursor: null
       };
     }
 
-    const articles: Article[] = data.results
+    const articles: Article[] = data.data
       // First, ensure we have valid data
-      .filter((article: APITubeArticle) => (
+      .filter((article: NewsDataHubArticle) => (
         article.title && 
-        article.href && 
-        article.published_at
+        article.article_link && 
+        article.pub_date
       ))
       // Then, create a Set to track unique titles
-      .reduce((unique: APITubeArticle[], article: APITubeArticle) => {
+      .reduce((unique: NewsDataHubArticle[], article: NewsDataHubArticle) => {
         const isDuplicate = unique.some(
-          (a) => a.title === article.title || a.href === article.href
+          (a) => a.title === article.title || a.article_link === article.article_link
         );
         if (!isDuplicate) {
           unique.push(article);
@@ -144,27 +134,29 @@ export const fetchNews = async ({
         return unique;
       }, [])
       // Finally, map to our Article type
-      .map((article: APITubeArticle) => ({
+      .map((article: NewsDataHubArticle) => ({
         title: article.title.trim(),
         description: article.description?.trim() || article.title,
-        content: article.body?.trim() || article.description || article.title,
-        url: article.href,
-        urlToImage: article.image || '/placeholder-image.jpg',
-        publishedAt: article.published_at,
+        content: article.content?.trim() || article.description || article.title,
+        url: article.article_link,
+        urlToImage: article.media_url || article.media_thumbnail || '/placeholder-image.jpg',
+        publishedAt: article.pub_date,
         source: {
-          name: article.source?.domain || 'Unknown Source'
+          name: article.source_title || 'Unknown Source'
         }
       }));
 
     return {
       articles,
-      totalResults: parseInt(data.limit) || articles.length,
-      hasNextPage: Boolean(data.has_next_pages)
+      totalResults: data.total_results || 0,
+      hasNextPage: !!data.next_cursor,
+      nextCursor: data.next_cursor
     };
   } catch (error) {
-    console.error('APITube Error Details:', error);
+    console.error('NewsDataHub Error Details:', error);
     if (error instanceof AxiosError) {
       const message = error.response?.data?.error || 
+                     error.response?.data?.message ||
                      error.message || 
                      'Failed to fetch news';
       throw new APIError(message);
@@ -220,8 +212,9 @@ export const generateAIContent = async (article: Article): Promise<{ headline: s
   try {
     const combinedContent = `Title: ${article.title}\nDescription: ${article.description}\nContent: ${article.content}`;
     
-    const promptHeadline = `Create a factual, engaging headline (max 10 words) that captures the main point of this news, just give one response as the heading you make will directly be displayed: ${combinedContent}`;
-    const promptSummary = `Analyze this news article and provide a comprehensive summary in exactly 100 words. Include the main event, key details, implications, and relevant context: ${combinedContent}`;
+    const promptHeadline = `Craft a sharp, witty, or darkly humorous headline (max 10 words) that captures the essence of this news. If it's not crime-related, feel free to make it satirical or ironic. No fluff—make it hit hard: ${combinedContent} give a single headline only`;
+    const promptSummary = `Summarize this news article in exactly 100 words, blending analysis with biting wit, irony, or dark humor (if it doesn’t involve crime). Highlight the main event, key details, and broader implications while keeping it bold, engaging, and slightly irreverent : ${combinedContent} dont use unnecessary inverted commas`;
+
 
     const result = await requestQueue.add(async () => {
       try {
