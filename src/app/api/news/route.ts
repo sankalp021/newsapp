@@ -1,5 +1,20 @@
 import { NextResponse } from 'next/server';
 
+// Helper to create a response with CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Api-Key',
+};
+
+// Handle OPTIONS request (preflight)
+export async function OPTIONS() {
+  return NextResponse.json({}, { 
+    status: 204,
+    headers: corsHeaders
+  });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const apiKey = process.env.NEWSDATA_API_KEY; // Use server-side env variable
@@ -7,10 +22,11 @@ export async function GET(request: Request) {
   if (!apiKey) {
     console.error("API key not found");
     return NextResponse.json(
+      { error: "API key not configured" },
       { 
-        error: "API key not configured"
-      },
-      { status: 500 }
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 
@@ -22,7 +38,6 @@ export async function GET(request: Request) {
   
   // Handle special parameters
   const size = searchParams.get('per_page') || searchParams.get('pageSize') || '10';
-  // Size parameter not needed in URL, API has default
   
   // Copy all other parameters from the request, excluding ones we handle specially
   for (const [key, value] of searchParams.entries()) {
@@ -61,7 +76,14 @@ export async function GET(request: Request) {
       // Handle error based on status code
       const errorMessage = data?.error || data?.message || `Failed to fetch news: ${response.status}`;
       console.error('API Error:', errorMessage);
-      throw new Error(errorMessage);
+      
+      return NextResponse.json(
+        { error: errorMessage }, 
+        { 
+          status: response.status,
+          headers: corsHeaders
+        }
+      );
     }
     
     // Add pagination info if missing - it seems the API might have a different structure
@@ -74,14 +96,15 @@ export async function GET(request: Request) {
       next_cursor: data.next_cursor || null,
     };
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, { headers: corsHeaders });
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to fetch news' },
       { 
-        error: error instanceof Error ? error.message : 'Failed to fetch news'
-      },
-      { status: 500 }
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }

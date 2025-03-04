@@ -1,10 +1,53 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        // Apply these headers to all routes
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET, POST, OPTIONS",
+          },
+          {
+            key: "Access-Control-Allow-Headers",
+            value: "Content-Type, Authorization, X-Api-Key",
+          },
+        ],
+      },
+    ];
+  },
   images: {
+    domains: [
+      'ichef.bbci.co.uk',
+      'cdn.vox-cdn.com',
+      'www.reuters.com',
+      'static.foxnews.com',
+      'www.aljazeera.com',
+      'media.npr.org',
+      'media.cnn.com',
+      's.yimg.com',
+      'assets.bwbx.io',
+      'c.ndtvimg.com',
+      'www.washingtonpost.com',
+      'www.ft.com',
+      'nypost.com',
+      'assets2.cbsnewsstatic.com',
+      'images.wsj.net',
+      'assets1.cbsnewsstatic.com',
+      'static01.nyt.com',
+      'si.wsj.net',
+      'www.adnkronos.com',
+    ],
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',  // Allow all hostnames in development
+        hostname: '**',
       },
     ],
     unoptimized: true, // Optional: disable image optimization if you're having issues
@@ -17,19 +60,6 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true, // Add this line to ignore ESLint errors during build
-  },
-  async headers() {
-    return [
-      {
-        // Allow CORS for API routes
-        source: "/api/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Origin", value: "https://bytenewz.vercel.app" },
-          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
-        ],
-      },
-    ];
   },
   async rewrites() {
     return {
