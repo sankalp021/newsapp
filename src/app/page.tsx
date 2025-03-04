@@ -13,6 +13,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([null]);
   const [totalResults, setTotalResults] = useState(0);
   const [category, setCategory] = useState<NewsCategory>('general');
   const [query, setQuery] = useState('');
@@ -22,8 +24,16 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      const { articles: newsArticles, totalResults: total, hasNextPage } = await fetchNews({
-        page,
+      // Use the cursor for the current page if available
+      const currentCursor = cursorHistory[page - 1] || null;
+
+      const { 
+        articles: newsArticles, 
+        totalResults: total, 
+        hasNextPage,
+        nextCursor: newNextCursor
+      } = await fetchNews({
+        cursor: currentCursor || undefined,
         category,
         query: query.trim(),
       });
@@ -33,9 +43,11 @@ export default function Home() {
       } else {
         setArticles(newsArticles);
         setTotalResults(total);
+        setNextCursor(newNextCursor);
         
-        if (!hasNextPage) {
-          setPage(1);
+        // Update cursor history if we got a new cursor
+        if (newNextCursor && page >= cursorHistory.length - 1) {
+          setCursorHistory(prev => [...prev, newNextCursor]);
         }
       }
     } catch (error) {
@@ -49,12 +61,36 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [category, query, page]);
+  }, [category, query, page, cursorHistory]);
 
+  // Reset pagination when search or category changes
+  useEffect(() => {
+    setPage(1);
+    setNextCursor(null);
+    setCursorHistory([null]);
+  }, [category, query]);
+
+  // Load news when page, category or query changes
   useEffect(() => {
     const timeoutId = setTimeout(loadNews, query ? 500 : 0);
     return () => clearTimeout(timeoutId);
-  }, [query, loadNews]);
+  }, [query, category, page, loadNews]);
+
+  // Function to handle page change and scroll to top
+  const handlePageChange = useCallback((newPage: number) => {
+    // Only allow going to next page if we have a cursor for it
+    if (newPage > page && !nextCursor) return;
+    
+    // Only allow going to pages we have cursors for
+    if (newPage > cursorHistory.length) return;
+    
+    setPage(newPage);
+    // Scroll to top of the page
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, [page, nextCursor, cursorHistory.length]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -97,21 +133,21 @@ export default function Home() {
             <div className="container mx-auto px-4 py-12">
               <div className="flex justify-between items-center text-2xl font-bold">
                 <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => handlePageChange(Math.max(1, page - 1))}
                   disabled={page === 1}
-                  className="relative group disabled:opacity-50"
+                  className={`py-2 px-4 ${page === 1 ? 'text-gray-600' : 'hover:bg-white hover:text-black'} transition-all duration-300`}
                 >
-                  <span className="relative z-10">← PREVIOUS</span>
-                  <div className="absolute inset-0 bg-white transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                  ← PREVIOUS
                 </button>
+                
                 <span>PAGE {page}</span>
+                
                 <button
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={articles.length * page >= totalResults}
-                  className="relative group disabled:opacity-50"
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={!nextCursor}
+                  className={`py-2 px-4 ${!nextCursor ? 'text-gray-600' : 'hover:bg-white hover:text-black'} transition-all duration-300`}
                 >
-                  <span className="relative z-10">NEXT →</span>
-                  <div className="absolute inset-0 bg-white transform origin-right scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                  NEXT →
                 </button>
               </div>
             </div>
