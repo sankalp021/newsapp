@@ -1,21 +1,283 @@
+/* Typography system - must come before Tailwind imports */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --foreground: 255, 255, 255;
+  --background: 0, 0, 0;
+  --accent: 255, 255, 255;
+  --accent-secondary: 180, 180, 180;
+  --red: 255, 45, 45;  /* Add a red accent color */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
+  font-family: 'Inter', sans-serif;
+}
+
+/* Bold typography */
+h1, h2, h3, h4, h5, h6, .heading {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* Monochrome text gradient with a touch of red */
+.text-gradient {
+  background: linear-gradient(to right, rgba(var(--red), 0.9), rgba(255, 255, 255, 0.8));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Subtle animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideInRight 0.5s ease-out forwards;
+}
+
+/* Clean card design with red accent on hover */
+.news-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.news-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.3), 0 6px 16px -8px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.news-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: rgb(var(--red));
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.news-card:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Minimal buttons with red accent */
+.btn-primary {
+  background-color: white;
+  color: black;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.25rem;
+  transition: all 0.3s ease;
+  font-family: 'Montserrat', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary:hover {
+  background-color: rgb(var(--red));
+  color: white;
+}
+
+/* Clean scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--red), 0.3);
+}
+
+/* Focus states with red accent */
+:focus-visible {
+  outline: 2px solid rgba(var(--red), 0.7);
+  outline-offset: 2px;
+}
+
+/* Media optimizations */
+img {
+  image-rendering: optimizeQuality;
+}
+
+/* Layout utilities */
+.container {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Text selection with red accent */
+::selection {
+  background: rgba(var(--red), 0.3);
+  color: white;
+}
+
+/* Add these styles to the end of your globals.css file */
+
+/* Modal animations */
+@keyframes modalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlide {
+  from { transform: translateY(20px); }
+  to { transform: translateY(0); }
+}
+
+/* Prose styles for rich text content */
+.prose {
+  max-width: 65ch;
+  color: rgb(var(--foreground));
+}
+
+.prose p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.prose strong {
+  color: rgb(var(--foreground));
+  font-weight: 600;
+}
+
+.prose a {
+  color: rgb(var(--red));
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.prose h2 {
+  color: rgb(var(--foreground));
+  margin-top: 2em;
+  margin-bottom: 1em;
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
+.prose ul {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  list-style-type: disc;
+  padding-left: 1.625em;
+}
+
+.prose li {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose blockquote {
+  font-style: italic;
+  border-left: 4px solid rgb(var(--red));
+  padding-left: 1em;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Improve shadow for modal */
+.shadow-modal {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Add a subtle pulse effect to the AI badge */
+@keyframes pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.ai-badge {
+  animation: pulse 2s infinite;
+}
+
+/* Enhance modal transitions for a better experience */
+.modal-enter {
+  opacity: 0;
+}
+
+.modal-enter-active {
+  opacity: 1;
+  transition: opacity 300ms;
+}
+
+.modal-exit {
+  opacity: 1;
+}
+
+.modal-exit-active {
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+/* Add these styles for the modal improvements */
+.border-l-3 {
+  border-left-width: 3px;
+}
+
+/* Make the modal content more readable */
+.prose-invert p {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+/* Improve modal shadow */
+.shadow-modal {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Add nice scrollbar for modal */
+.max-h-\[85vh\]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-\[85vh\]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.max-h-\[85vh\]::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.max-h-\[85vh\]::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--red), 0.3);
 }
