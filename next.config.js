@@ -18,6 +18,10 @@ const nextConfig = {
             key: "Access-Control-Allow-Headers",
             value: "Content-Type, Authorization, X-Api-Key",
           },
+          {
+            key: "Content-Security-Policy",
+            value: "connect-src 'self' https://api.newsdatahub.com https://generativelanguage.googleapis.com"
+          }
         ],
       },
     ];

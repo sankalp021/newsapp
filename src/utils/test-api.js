@@ -5,7 +5,7 @@
 const https = require('https');
 require('dotenv').config({ path: '.env.local' });
 
-const apiKey = process.env.NEWSDATA_API_KEY;
+const apiKey = process.env.NEXT_PUBLIC_NEWSDATA_API_KEY;
 
 if (!apiKey) {
   console.error('API key not found in environment variables');

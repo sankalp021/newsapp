@@ -17,7 +17,7 @@ export async function OPTIONS() {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const apiKey = process.env.NEWSDATA_API_KEY; // Use server-side env variable
+  const apiKey = process.env.NEXT_PUBLIC_NEWSDATA_API_KEY; // Use server-side env variable
   
   if (!apiKey) {
     console.error("API key not found");

@@ -23,17 +23,22 @@ interface NewsParams {
   endDate?: string;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_VERCEL_URL 
-  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/news`
-  : '/api/news';
-
-const initializeNewsApi = () => {
+// Create a NewsDataHub client directly instead of using proxy API
+const createNewsDataHubClient = () => {
+  // Use public API key from environment
+  const apiKey = process.env.NEXT_PUBLIC_NEWSDATA_API_KEY;
+  
   return axios.create({
-    baseURL: BASE_URL
+    baseURL: 'https://api.newsdatahub.com/v1',
+    headers: {
+      'X-Api-Key': apiKey || '',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }
   });
 };
 
-const newsDataHubApi = initializeNewsApi();
+const newsClient = createNewsDataHubClient();
 
 export const fetchNews = async ({
   page,
@@ -66,7 +71,7 @@ export const fetchNews = async ({
     }
 
     // Add topic/category filter if available
-    // "general" is handled by the API route (returns all categories)
+    // "general" is handled separately (returns all categories)
     if (category && category !== 'general') {
       queryParams.topic = category;
     }
@@ -82,7 +87,8 @@ export const fetchNews = async ({
 
     console.log('Request params:', queryParams); // Debug log
 
-    const response = await newsDataHubApi.get('', { 
+    // Make direct request to NewsDataHub API instead of through our own API route
+    const response = await newsClient.get('/news', { 
       params: queryParams 
     });
     
