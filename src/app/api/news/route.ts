@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Api-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 // Handle OPTIONS request (preflight)
@@ -30,29 +30,51 @@ export async function GET(request: Request) {
     );
   }
 
-  // Build the URL for NewsDataHub API
-  const baseUrl = 'https://api.newsdatahub.com/v1/news';
+  // Build the URL for NewsData.io API
+  const baseUrl = 'https://newsdata.io/api/1/latest';
   
   // Create a new URLSearchParams object for the query parameters
   const params = new URLSearchParams();
   
-  // Handle special parameters
-  const size = searchParams.get('per_page') || searchParams.get('pageSize') || '10';
+  // Add API key as query parameter (NewsData.io requirement)
+  params.append('apikey', apiKey);
   
-  // Copy all other parameters from the request, excluding ones we handle specially
-  for (const [key, value] of searchParams.entries()) {
-    if (!['per_page', 'pageSize', 'topic'].includes(key) || (key === 'topic' && value !== 'general')) {
-      params.append(key, value);
-    }
+  // Handle special parameters for NewsData.io
+  const size = searchParams.get('per_page') || searchParams.get('pageSize') || '10';
+  params.append('size', size);
+  
+  // Map common parameters to NewsData.io format
+  const category = searchParams.get('category');
+  if (category && category !== 'general') {
+    params.append('category', category);
+  }
+  
+  const country = searchParams.get('country');
+  if (country) {
+    params.append('country', country);
+  }
+  
+  const language = searchParams.get('language');
+  if (language) {
+    params.append('language', language);
+  }
+  
+  const q = searchParams.get('q') || searchParams.get('query');
+  if (q) {
+    params.append('q', q);
+  }
+  
+  // Handle pagination with NewsData.io's nextPage parameter
+  const nextPage = searchParams.get('page') || searchParams.get('nextPage');
+  if (nextPage) {
+    params.append('page', nextPage);
   }
 
   const finalUrl = `${baseUrl}?${params.toString()}`;
   console.log('Request URL:', finalUrl); // Debug log
-
   try {
     const response = await fetch(finalUrl, {
       headers: {
-        'X-Api-Key': apiKey,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'User-Agent': 'ByteNewz/1.0'
@@ -64,8 +86,7 @@ export async function GET(request: Request) {
     // Try to parse response regardless of status for better error handling
     let data;
     try {
-      data = await response.json();
-    } catch (e) {
+      data = await response.json();    } catch (e) {
       console.error('Failed to parse response:', e);
       data = null;
     }
@@ -74,7 +95,7 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
       // Handle error based on status code
-      const errorMessage = data?.error || data?.message || `Failed to fetch news: ${response.status}`;
+      const errorMessage = data?.results?.message || data?.message || `Failed to fetch news: ${response.status}`;  
       console.error('API Error:', errorMessage);
       
       return NextResponse.json(
@@ -86,14 +107,18 @@ export async function GET(request: Request) {
       );
     }
     
-    // Add pagination info if missing - it seems the API might have a different structure
-    // than what we initially expected
+    // NewsData.io response structure adaptation
+    // NewsData.io returns: { status, totalResults, results: [...], nextPage }
     const responseData = {
-      ...data,
-      // Make sure we have these fields even if the API doesn't return them
+      status: data.status,
+      totalResults: data.totalResults || 0,
+      results: data.results || [],
+      nextPage: data.nextPage || null,
+      // Keep backward compatibility
+      data: data.results || [],
+      total_results: data.totalResults || 0,
       per_page: parseInt(size),
-      total_results: data.total_results || (data.data?.length || 0),
-      next_cursor: data.next_cursor || null,
+      next_cursor: data.nextPage || null,
     };
 
     return NextResponse.json(responseData, { headers: corsHeaders });

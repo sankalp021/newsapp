@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { Article } from '../types/types';
-import { NewsDataHubResponse, NewsDataHubArticle, NewsTopic } from '../types/newsdatahub';
+import { NewsTopic } from '../types/newsdatahub';
 
 class APIError extends Error {
   constructor(message: string) {
@@ -24,22 +24,18 @@ interface NewsParams {
   topics?: string[]; // Added support for multiple topics
 }
 
-// Create a NewsDataHub client directly instead of using proxy API
-const createNewsDataHubClient = () => {
-  // Use public API key from environment
-  const apiKey = process.env.NEXT_PUBLIC_NEWSDATA_API_KEY;
-  
+// Create a client for our Next.js API route instead of direct external API calls
+const createAPIClient = () => {
   return axios.create({
-    baseURL: 'https://api.newsdatahub.com/v1',
+    baseURL: '/api',
     headers: {
-      'X-Api-Key': apiKey || '',
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     }
   });
 };
 
-const newsClient = createNewsDataHubClient();
+const apiClient = createAPIClient();
 
 export const fetchNews = async ({
   page,
@@ -90,35 +86,36 @@ export const fetchNews = async ({
     
     if (endDate) {
       queryParams.end_date = endDate;
-    }
+    }    console.log('Request params:', queryParams); // Debug log
 
-    console.log('Request params:', queryParams); // Debug log
-
-    // Make direct request to NewsDataHub API instead of through our own API route
-    const response = await newsClient.get('/news', { 
+    // Make request to our Next.js API route which handles NewsData.io integration
+    const response = await apiClient.get('/news', { 
       params: queryParams 
     });
     
-    const data: NewsDataHubResponse = response.data;
+    const data = response.data;
 
     // For debugging
     console.log('Response structure:', Object.keys(data || {}));
 
     if (!data) {
-      throw new APIError('Empty response from NewsDataHub');
+      throw new APIError('Empty response from API');
     }
 
     if (data.error) {
       throw new APIError(data.error);
     }
 
-    // Check if the response has the expected data structure
-    if (!Array.isArray(data.data)) {
+    // Handle NewsData.io response structure (via our API route)
+    // Our API route returns both NewsData.io format and backward compatibility
+    const results = data.results || data.data || [];
+    
+    if (!Array.isArray(results)) {
       console.error('Invalid results format:', data);
       
       // Handle the case where the API returns an error object
-      if (data.error || (data as any).message) {
-        throw new APIError((data.error || (data as any).message) as string);
+      if (data.error || data.message) {
+        throw new APIError(data.error || data.message);
       }
       
       return {
@@ -129,44 +126,44 @@ export const fetchNews = async ({
       };
     }
 
-    const articles: Article[] = data.data
-      // First, ensure we have valid data
-      .filter((article: NewsDataHubArticle) => (
+    const articles: Article[] = results
+      // First, ensure we have valid data - NewsData.io has different field names
+      .filter((article: any) => (
         article.title && 
-        article.article_link && 
-        article.pub_date
+        (article.link || article.article_link) && 
+        (article.pubDate || article.pub_date)
       ))
       // Then, create a Set to track unique titles
-      .reduce((unique: NewsDataHubArticle[], article: NewsDataHubArticle) => {
+      .reduce((unique: any[], article: any) => {
         const isDuplicate = unique.some(
-          (a) => a.title === article.title || a.article_link === article.article_link
+          (a) => a.title === article.title || 
+                 (a.link || a.article_link) === (article.link || article.article_link)
         );
         if (!isDuplicate) {
           unique.push(article);
         }
         return unique;
       }, [])
-      // Finally, map to our Article type
-      .map((article: NewsDataHubArticle) => ({
+      // Finally, map to our Article type - handle both NewsData.io and NewsDataHub formats
+      .map((article: any) => ({
         title: article.title.trim(),
-        description: article.description?.trim() || article.title,
-        content: article.content?.trim() || article.description || article.title,
-        url: article.article_link,
-        urlToImage: article.media_url || article.media_thumbnail || '/placeholder-image.jpg',
-        publishedAt: article.pub_date,
+        description: article.description?.trim() || article.content?.trim() || article.title,
+        content: article.content?.trim() || article.description?.trim() || article.title,
+        url: article.link || article.article_link,
+        urlToImage: article.image_url || article.media_url || article.media_thumbnail || '/placeholder-image.jpg',
+        publishedAt: article.pubDate || article.pub_date,
         source: {
-          name: article.source_title || 'Unknown Source'
+          name: article.source_id || article.source_title || 'Unknown Source'
         }
       }));
 
     return {
       articles,
-      totalResults: data.total_results || 0,
-      hasNextPage: !!data.next_cursor,
-      nextCursor: data.next_cursor || null
-    };
-  } catch (error) {
-    console.error('NewsDataHub Error Details:', error);
+      totalResults: data.totalResults || data.total_results || 0,
+      hasNextPage: !!(data.nextPage || data.next_cursor),
+      nextCursor: data.nextPage || data.next_cursor || null
+    };  } catch (error) {
+    console.error('API Error Details:', error);
     if (error instanceof AxiosError) {
       const message = error.response?.data?.error || 
                      error.response?.data?.message ||
