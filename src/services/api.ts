@@ -175,103 +175,37 @@ export const fetchNews = async ({
   }
 };
 
-// Queue system for API requests
-class RequestQueue {
-  private queue: Array<() => Promise<unknown>> = [];
-  private processing = false;
-  private lastRequestTime = 0;
-  private RATE_LIMIT_DELAY = 2000; // 2 seconds between requests
-
-  async add<T>(request: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.queue.push(async () => {
-        try {
-          const now = Date.now();
-          const timeSinceLastRequest = now - this.lastRequestTime;
-          if (timeSinceLastRequest < this.RATE_LIMIT_DELAY) {
-            await new Promise(r => setTimeout(r, this.RATE_LIMIT_DELAY - timeSinceLastRequest));
-          }
-          this.lastRequestTime = Date.now();
-          const result = await request();
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        }
-      });
-      this.process();
-    });
-  }
-
-  private async process() {
-    if (this.processing || this.queue.length === 0) return;
-    this.processing = true;
-    while (this.queue.length > 0) {
-      const request = this.queue.shift();
-      if (request) await request();
-    }
-    this.processing = false;
-  }
-}
-
-const requestQueue = new RequestQueue();
-
-// Update Gemini API URL to use the correct model
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
 export const generateAIContent = async (article: Article): Promise<{ headline: string; summary: string }> => {
   try {
-    const combinedContent = `Title: ${article.title}\nDescription: ${article.description}\nContent: ${article.content}`;
-    
-    const promptHeadline = `Craft a sharp, witty, or darkly humorous headline (max 10 words) that captures the essence of this news. If it's not crime-related, feel free to make it satirical or ironic. No fluff—make it hit hard: ${combinedContent} give a single headline only, no additional formatting like asterisks, quotes or markdown.`;
-    const promptSummary = `Summarize this news article in exactly 100 words, blending analysis with biting wit, irony, or dark humor (if it doesn't involve crime). Highlight the main event, key details, and broader implications while keeping it bold, engaging, and slightly irreverent. Do not use any markdown, asterisks, quotes or special formatting: ${combinedContent}`;
-
-    const result = await requestQueue.add(async () => {
-      try {
-        const [headlineRes, summaryRes] = await Promise.all([
-          axios({
-            url: GEMINI_API_URL,
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            params: { key: process.env.NEXT_PUBLIC_GOOGLE_API_KEY },
-            data: {
-              contents: [{ parts: [{ text: promptHeadline }] }]
-            }
-          }),
-          axios({
-            url: GEMINI_API_URL,
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            params: { key: process.env.NEXT_PUBLIC_GOOGLE_API_KEY },
-            data: {
-              contents: [{ parts: [{ text: promptSummary }] }]
-            }
-          })
-        ]);
-
-        // Clean up any Markdown or special characters from the responses
-        let headline = headlineRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || article.title;
-        let summary = summaryRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || article.description;
-
-        // Remove Markdown formatting like asterisks, quotes, etc.
-        headline = headline.replace(/[\*\"\'\_\`\~\#\>\<\[\]\(\)\{\}\|\\\^\=]/g, '').trim();
-        summary = summary.replace(/[\*\"\'\_\`\~\#\>\<\[\]\(\)\{\}\|\\\^\=]/g, '').trim();
-
-        return {
-          headline,
-          summary
-        };
-      } catch (error) {
-        console.error('Full error details:', error);
-        throw error;
-      }
+    // Generation runs server-side (see /app/api/ai/route.ts) so the Google API
+    // key is never exposed to the browser and the model can be swapped without
+    // a client rebuild.
+    const response = await apiClient.post('/ai', {
+      title: article.title,
+      description: article.description,
+      content: article.content,
     });
 
-    return result;
-  } catch (error) {
-    console.error('Gemini API Error:', error);
+    const data = response.data;
+
+    if (data?.error) {
+      throw new APIError(data.error);
+    }
+
     return {
-      headline: article.title,
-      summary: article.description
+      headline: data?.headline || article.title,
+      summary: data?.summary || article.description,
     };
+  } catch (error) {
+    // Surface the real failure instead of silently masquerading the plain
+    // article text as an AI summary — that hid broken keys / retired models.
+    let message = 'Failed to generate AI summary';
+    if (error instanceof AxiosError) {
+      message = error.response?.data?.error || error.message || message;
+    } else if (error instanceof Error) {
+      message = error.message;
+    }
+    console.error('AI generation error:', message);
+    throw new APIError(message);
   }
 };
